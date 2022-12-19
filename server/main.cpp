@@ -47,49 +47,60 @@ int main()
 		return -1;
 	}
 
-	sockaddr_in clientSockInfo;
-	int clientSockInfoSize = sizeof(clientSockInfo);
-	ZeroMemory(&clientSockInfo, sizeof(clientSockInfo));
+	fd_set set;
+	FD_ZERO(&set);
+	FD_SET(listenSocket, &set);
+	sockaddr_in clntAdr;
+	int clntSize;
 
-	SOCKET clientSocket = accept(listenSocket, (sockaddr*)&clientSockInfo, &clientSockInfoSize);
-
-	cout << "Client connected" << endl;
-
-	if (clientSocket == INVALID_SOCKET)
-	{
-		cerr << "Can't accept a socket!! Quitting" << endl;
-		closesocket(listenSocket);
-		WSACleanup();
-		return -1;
-	}
-
-	closesocket(listenSocket);
-
-	const int BUF_SIZE = 4096;
-	char buf[BUF_SIZE];
 
 	while (true)
 	{
-		ZeroMemory(buf, BUF_SIZE);
-
-		int bytesReceived = recv(clientSocket, buf, BUF_SIZE, 0);
-		if (bytesReceived == SOCKET_ERROR)
+		fd_set copy = set;
+		
+		int socketCount = select(0, &copy, nullptr, nullptr, nullptr);
+		clntSize = sizeof(clntAdr);
+		for (int i = 0; i < socketCount; i++)
 		{
-			cerr << "Error in recv()!! Quitting" << endl;
-			break;
-		}
+			SOCKET socket = copy.fd_array[i];
 
-		if (bytesReceived == 0)
-		{
-			cout << "Client disconnected!!" << endl;
-			break;
-		}
+			if (socket == listenSocket)
+			{
+				SOCKET client = accept(listenSocket, (sockaddr*)&clntAdr, &clntSize);
+				FD_SET(client, &set);
+				string msg = "Welcome!!\r\n";
+				send(client, msg.c_str(), msg.size() + 1, 0);
+			}
+			else
+			{
+				char buf[4096];
+				ZeroMemory(buf, 4096);
 
-		cout << buf << endl;
-		send(clientSocket, buf, bytesReceived + 1, 0);
+				int recvBytes = recv(socket, buf, 4096, 0);
+				if (recvBytes <= 0)
+				{
+					closesocket(socket);
+					FD_CLR(socket, &set);
+				}
+				else
+				{
+					for (int i = 0; i < set.fd_count; i++)
+					{
+						SOCKET outSocket = set.fd_array[i];
+						if (outSocket != listenSocket && outSocket != socket)
+						{
+							send(outSocket, buf, recvBytes, 0);
+						}
+
+					}
+				}
+
+			}
+			
+		}
 	}
 
-	closesocket(clientSocket);
+
 	WSACleanup();
 
 	return 0;
