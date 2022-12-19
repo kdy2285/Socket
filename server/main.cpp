@@ -53,11 +53,10 @@ int main()
 	sockaddr_in clntAdr;
 	int clntSize;
 
-
 	while (true)
 	{
 		fd_set copy = set;
-		
+
 		int socketCount = select(0, &copy, nullptr, nullptr, nullptr);
 		clntSize = sizeof(clntAdr);
 		for (int i = 0; i < socketCount; i++)
@@ -91,15 +90,11 @@ int main()
 						{
 							send(outSocket, buf, recvBytes, 0);
 						}
-
 					}
 				}
-
 			}
-			
 		}
 	}
-
 
 	WSACleanup();
 
